@@ -59,7 +59,7 @@ def send_slack(webhook_url: str, app_name: str, reviews: list[dict], classificat
         original_content = review.get("content", "")[:300]
 
         # Build review text
-        store_icon = "🍎" if review.get("store") == "apple" else ":android:"
+        store_icon = "🍎" if review.get("store") == "apple" else "🟢"
         text = f"{store_icon} {stars_display} {emoji} *{cls['importance'].upper()}* | `{cls['category']}`\n"
 
         # Korean translation first, then original if different
