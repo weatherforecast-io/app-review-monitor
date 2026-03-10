@@ -1,0 +1,41 @@
+name: Check App Store Reviews
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours: 00:00, 06:00, 12:00, 18:00 UTC
+  workflow_dispatch: {}      # Manual trigger for testing
+
+jobs:
+  check-reviews:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore last-check state
+        uses: actions/cache/restore@v4
+        with:
+          path: .state/
+          key: review-state-${{ github.run_id }}
+          restore-keys: review-state-
+
+      - name: Run review check
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          APP_IDS: ${{ secrets.APP_IDS }}
+          APP_NAMES: ${{ secrets.APP_NAMES }}
+          APP_COUNTRIES: ${{ secrets.APP_COUNTRIES }}
+        run: python main.py
+
+      - name: Save last-check state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .state/
+          key: review-state-${{ github.run_id }}

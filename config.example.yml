@@ -1,0 +1,23 @@
+# App Store Review Monitor - Configuration
+# Copy this file to config.yml and fill in your values.
+# For GitHub Actions, use Secrets instead (see README).
+
+apps:
+  - name: "MyApp"
+    app_id: "123456789"
+    countries: ["us", "kr"]
+  - name: "MyOtherApp"
+    app_id: "987654321"
+    countries: ["us"]
+
+# Optional: customize classification keywords
+# classification:
+#   importance_rules:
+#     critical: ["crash", "not working", "data loss"]
+#     high: ["bug", "error", "slow"]
+#     low: ["love", "great", "amazing"]
+#   category_rules:
+#     performance: ["slow", "lag", "freeze"]
+#     stability: ["crash", "force close"]
+#     ux: ["confusing", "hard to find", "ui"]
+#     feature_request: ["wish", "please add"]
