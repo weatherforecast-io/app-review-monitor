@@ -23,4 +23,5 @@ jobs:
           APP_IDS: ${{ vars.APP_IDS }}
           APP_NAMES: ${{ vars.APP_NAMES }}
           APP_COUNTRIES: ${{ vars.APP_COUNTRIES }}
+          MAX_REVIEWS_PER_APP: "10"
         run: python main.py

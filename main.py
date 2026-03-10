@@ -86,6 +86,11 @@ def main() -> None:
                 logger.info("  %s/%s: no new reviews", country.upper(), app_name)
 
         if app_reviews:
+            max_reviews = int(os.environ.get("MAX_REVIEWS_PER_APP", "0"))
+            if max_reviews > 0 and len(app_reviews) > max_reviews:
+                logger.info("Limiting %d reviews to %d (MAX_REVIEWS_PER_APP)", len(app_reviews), max_reviews)
+                app_reviews = app_reviews[:max_reviews]
+
             logger.info("Classifying and translating %d reviews with Claude...", len(app_reviews))
             classifications = classify_and_translate_reviews(app_reviews, anthropic_api_key)
             send_slack(webhook_url, app_name, app_reviews, classifications)
