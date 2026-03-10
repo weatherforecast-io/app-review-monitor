@@ -18,9 +18,9 @@ jobs:
 
       - name: Run review check (no state - fetches recent reviews)
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          APP_IDS: ${{ secrets.APP_IDS }}
-          APP_NAMES: ${{ secrets.APP_NAMES }}
-          APP_COUNTRIES: ${{ secrets.APP_COUNTRIES }}
+          SLACK_WEBHOOK_URL: ${{ vars.SLACK_WEBHOOK_URL }}
+          APP_IDS: ${{ vars.APP_IDS }}
+          APP_NAMES: ${{ vars.APP_NAMES }}
+          APP_COUNTRIES: ${{ vars.APP_COUNTRIES }}
         run: python main.py
