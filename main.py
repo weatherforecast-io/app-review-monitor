@@ -49,23 +49,26 @@ def main() -> None:
         logger.error("No apps configured. Set APP_IDS env var or create config.yml.")
         sys.exit(1)
 
-    webhook_url = os.environ.get("SLACK_WEBHOOK_URL", "")
+    webhook_urls_raw = os.environ.get("SLACK_WEBHOOK_URLS", os.environ.get("SLACK_WEBHOOK_URL", ""))
     anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
 
-    if not webhook_url:
-        logger.error("Missing SLACK_WEBHOOK_URL env var.")
+    if not webhook_urls_raw:
+        logger.error("Missing SLACK_WEBHOOK_URLS env var.")
         sys.exit(1)
     if not anthropic_api_key:
         logger.error("Missing ANTHROPIC_API_KEY env var.")
         sys.exit(1)
 
+    webhook_urls = [u.strip() for u in webhook_urls_raw.split(",") if u.strip()]
+
     state = load_state()
     total_new = 0
 
-    for app in config["apps"]:
+    for i, app in enumerate(config["apps"]):
         app_name = app["name"]
         app_id = app["app_id"]
         countries = app.get("countries", ["us"])
+        webhook_url = webhook_urls[i] if i < len(webhook_urls) else webhook_urls[-1]
 
         logger.info("Checking reviews for %s (ID: %s)...", app_name, app_id)
         app_reviews = []
