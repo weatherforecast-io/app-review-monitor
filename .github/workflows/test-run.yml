@@ -1,0 +1,26 @@
+name: Test Run (Manual)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  test-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run review check (no state - fetches recent reviews)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          APP_IDS: ${{ secrets.APP_IDS }}
+          APP_NAMES: ${{ secrets.APP_NAMES }}
+          APP_COUNTRIES: ${{ secrets.APP_COUNTRIES }}
+        run: python main.py

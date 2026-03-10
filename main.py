@@ -7,7 +7,7 @@ import sys
 import yaml
 
 from scripts.check_reviews import fetch_reviews, filter_new_reviews, load_state, save_state
-from scripts.format_mail import classify_review
+from scripts.format_mail import classify_and_translate_reviews
 from scripts.send_mail import send_slack
 
 logging.basicConfig(
@@ -16,18 +16,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONFIG = {
-    "apps": [],
-    "classification": {
-        "importance_rules": None,
-        "category_rules": None,
-    },
-}
-
 
 def load_config() -> dict:
     """Load config from config.yml or environment variables."""
-    config = DEFAULT_CONFIG.copy()
+    config = {"apps": []}
 
     if os.path.exists("config.yml"):
         with open("config.yml", encoding="utf-8") as f:
@@ -58,11 +50,15 @@ def main() -> None:
         sys.exit(1)
 
     webhook_url = os.environ.get("SLACK_WEBHOOK_URL", "")
+    anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+
     if not webhook_url:
         logger.error("Missing SLACK_WEBHOOK_URL env var.")
         sys.exit(1)
+    if not anthropic_api_key:
+        logger.error("Missing ANTHROPIC_API_KEY env var.")
+        sys.exit(1)
 
-    classification = config.get("classification", {})
     state = load_state()
     total_new = 0
 
@@ -87,15 +83,8 @@ def main() -> None:
                 logger.info("  %s/%s: no new reviews", country.upper(), app_name)
 
         if app_reviews:
-            classifications = [
-                classify_review(
-                    r,
-                    importance_rules=classification.get("importance_rules"),
-                    category_rules=classification.get("category_rules"),
-                )
-                for r in app_reviews
-            ]
-
+            logger.info("Classifying and translating %d reviews with Claude...", len(app_reviews))
+            classifications = classify_and_translate_reviews(app_reviews, anthropic_api_key)
             send_slack(webhook_url, app_name, app_reviews, classifications)
             total_new += len(app_reviews)
         else:

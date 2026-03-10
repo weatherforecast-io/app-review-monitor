@@ -1,48 +1,133 @@
-"""Classify App Store reviews by importance and category."""
+"""Classify and translate App Store reviews using Claude API."""
 
+import json
 import logging
+from pathlib import Path
+
+import anthropic
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_IMPORTANCE_RULES = {
-    "critical": ["crash", "not working", "broken", "data loss", "can't login", "security", "작동 안", "먹통", "삭제됨"],
-    "high": ["bug", "error", "freeze", "slow", "battery", "버그", "오류", "느려", "멈춤"],
-    "low": ["love", "great", "amazing", "best app", "좋아요", "최고", "감사"],
-}
-
-DEFAULT_CATEGORY_RULES = {
-    "performance": ["slow", "lag", "freeze", "battery", "memory", "느려", "렉", "배터리"],
-    "stability": ["crash", "force close", "not responding", "크래시", "멈춤", "강제종료"],
-    "ux": ["confusing", "hard to find", "ui", "design", "불편", "디자인", "찾기 어"],
-    "feature_request": ["wish", "please add", "would be nice", "should have", "추가해", "기능 요청"],
-    "login_auth": ["login", "password", "sign in", "account", "로그인", "비밀번호", "계정"],
-    "billing": ["subscription", "charge", "refund", "price", "payment", "구독", "결제", "환불"],
-}
+GUIDE_PATH = Path(__file__).parent.parent / "classification_guide.md"
 
 
-def classify_review(review: dict, importance_rules: dict = None, category_rules: dict = None) -> dict:
-    """Classify a review by importance and category."""
-    imp_rules = importance_rules or DEFAULT_IMPORTANCE_RULES
-    cat_rules = category_rules or DEFAULT_CATEGORY_RULES
+def _load_guide() -> str:
+    return GUIDE_PATH.read_text(encoding="utf-8")
 
-    text = f"{review.get('title', '')} {review.get('content', '')}".lower()
-    rating = review.get("rating", 3)
 
-    # Importance
-    importance = None
-    for level in ["critical", "high", "low"]:
-        keywords = imp_rules.get(level, [])
-        if any(kw.lower() in text for kw in keywords):
-            importance = level
-            break
-    if importance is None:
-        importance = "high" if rating <= 2 else ("medium" if rating == 3 else "low")
+def classify_and_translate_reviews(reviews: list[dict], api_key: str) -> list[dict]:
+    """Classify importance/category and translate non-Korean reviews using Claude.
 
-    # Category
-    category = "general"
-    for cat, keywords in cat_rules.items():
-        if any(kw.lower() in text for kw in keywords):
-            category = cat
-            break
+    Returns a list of dicts with keys: importance, category, title_ko, content_ko
+    """
+    if not reviews:
+        return []
 
-    return {"importance": importance, "category": category}
+    guide = _load_guide()
+    client = anthropic.Anthropic(api_key=api_key)
+
+    # Build review list for the prompt
+    review_items = []
+    for i, r in enumerate(reviews):
+        review_items.append(
+            f"[{i}] rating={r['rating']} country={r.get('country', '')} "
+            f"title=\"{r.get('title', '')}\" "
+            f"content=\"{r.get('content', '')[:500]}\""
+        )
+
+    reviews_text = "\n".join(review_items)
+
+    prompt = f"""아래 분류 가이드를 참고하여 앱스토어 리뷰들을 분류하고, 한국어가 아닌 리뷰는 한국어로 번역해주세요.
+
+<classification_guide>
+{guide}
+</classification_guide>
+
+<reviews>
+{reviews_text}
+</reviews>
+
+각 리뷰에 대해 아래 JSON 배열을 반환해주세요. 다른 텍스트 없이 JSON만 반환하세요.
+
+[
+  {{
+    "index": 0,
+    "importance": "critical|high|medium|low",
+    "category": "카테고리명",
+    "title_ko": "한국어 제목 (원래 한국어면 그대로, 아니면 번역)",
+    "content_ko": "한국어 내용 요약 (원래 한국어면 그대로, 아니면 번역. 최대 200자)"
+  }},
+  ...
+]"""
+
+    # Process in batches of 20 to stay within token limits
+    batch_size = 20
+    all_results = []
+
+    for batch_start in range(0, len(reviews), batch_size):
+        batch_reviews = reviews[batch_start:batch_start + batch_size]
+        batch_items = []
+        for i, r in enumerate(batch_reviews):
+            batch_items.append(
+                f"[{i}] rating={r['rating']} country={r.get('country', '')} "
+                f"title=\"{r.get('title', '')}\" "
+                f"content=\"{r.get('content', '')[:500]}\""
+            )
+
+        batch_text = "\n".join(batch_items)
+        batch_prompt = f"""아래 분류 가이드를 참고하여 앱스토어 리뷰들을 분류하고, 한국어가 아닌 리뷰는 한국어로 번역해주세요.
+
+<classification_guide>
+{guide}
+</classification_guide>
+
+<reviews>
+{batch_text}
+</reviews>
+
+각 리뷰에 대해 아래 JSON 배열을 반환해주세요. 다른 텍스트 없이 JSON만 반환하세요.
+
+[
+  {{
+    "index": 0,
+    "importance": "critical|high|medium|low",
+    "category": "카테고리명",
+    "title_ko": "한국어 제목 (원래 한국어면 그대로, 아니면 번역)",
+    "content_ko": "한국어 내용 요약 (원래 한국어면 그대로, 아니면 번역. 최대 200자)"
+  }},
+  ...
+]"""
+
+        try:
+            message = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=4096,
+                messages=[{"role": "user", "content": batch_prompt}],
+            )
+
+            response_text = message.content[0].text.strip()
+
+            # Extract JSON from response (handle markdown code blocks)
+            if response_text.startswith("```"):
+                response_text = response_text.split("```")[1]
+                if response_text.startswith("json"):
+                    response_text = response_text[4:]
+                response_text = response_text.strip()
+
+            batch_results = json.loads(response_text)
+            all_results.extend(batch_results)
+
+        except (json.JSONDecodeError, anthropic.APIError, IndexError, KeyError) as e:
+            logger.warning("Claude API batch failed (start=%d): %s", batch_start, e)
+            # Fallback: return basic classification for this batch
+            for r in batch_reviews:
+                rating = r.get("rating", 3)
+                importance = "high" if rating <= 2 else ("medium" if rating == 3 else "low")
+                all_results.append({
+                    "importance": importance,
+                    "category": "other",
+                    "title_ko": r.get("title", ""),
+                    "content_ko": r.get("content", "")[:200],
+                })
+
+    return all_results
