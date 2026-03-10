@@ -138,7 +138,7 @@ def main() -> None:
                     apple = apple[:half]
                     google = google[:max_reviews - len(apple)]
                 all_reviews = apple + google
-                logger.info("Limiting to %d reviews (🍎 %d + 🟢 %d)", len(all_reviews), len(apple), len(google))
+                logger.info("Limiting to %d reviews (iOS %d + Android %d)", len(all_reviews), len(apple), len(google))
 
             logger.info("Classifying and translating %d reviews with Claude...", len(all_reviews))
             classifications = classify_and_translate_reviews(all_reviews, anthropic_api_key)
