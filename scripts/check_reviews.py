@@ -94,17 +94,8 @@ def filter_new_reviews(reviews: list[dict], last_seen_id: str | None) -> list[di
         return []
 
     if last_seen_id is None:
-        # First run: return reviews from the last 6 hours
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
-        new = []
-        for r in reviews:
-            try:
-                review_date = datetime.fromisoformat(r["date"].replace("Z", "+00:00"))
-                if review_date >= cutoff:
-                    new.append(r)
-            except (ValueError, KeyError):
-                continue
-        return new
+        # First run: return the most recent 10 reviews so we can verify Slack integration
+        return reviews[:10]
 
     # Collect reviews until we hit the last-seen ID
     new = []
