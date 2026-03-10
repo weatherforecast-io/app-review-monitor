@@ -126,8 +126,19 @@ def main() -> None:
         if all_reviews:
             max_reviews = int(os.environ.get("MAX_REVIEWS_PER_APP", "0"))
             if max_reviews > 0 and len(all_reviews) > max_reviews:
-                logger.info("Limiting %d reviews to %d (MAX_REVIEWS_PER_APP)", len(all_reviews), max_reviews)
-                all_reviews = all_reviews[:max_reviews]
+                # Split evenly between Apple and Google
+                apple = [r for r in all_reviews if r.get("store") == "apple"]
+                google = [r for r in all_reviews if r.get("store") == "google"]
+                half = max_reviews // 2
+                if not google:
+                    apple = apple[:max_reviews]
+                elif not apple:
+                    google = google[:max_reviews]
+                else:
+                    apple = apple[:half]
+                    google = google[:max_reviews - len(apple)]
+                all_reviews = apple + google
+                logger.info("Limiting to %d reviews (🍎 %d + 🟢 %d)", len(all_reviews), len(apple), len(google))
 
             logger.info("Classifying and translating %d reviews with Claude...", len(all_reviews))
             classifications = classify_and_translate_reviews(all_reviews, anthropic_api_key)
