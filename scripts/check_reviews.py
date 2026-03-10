@@ -38,6 +38,7 @@ def _parse_entry(entry: dict, country: str) -> dict:
         "date": entry.get("updated", {}).get("label", ""),
         "vote_count": int(entry.get("im:voteCount", {}).get("label", "0")),
         "country": country,
+        "store": "apple",
     }
 
 

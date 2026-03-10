@@ -32,6 +32,7 @@ jobs:
           APP_IDS: ${{ vars.APP_IDS }}
           APP_NAMES: ${{ vars.APP_NAMES }}
           APP_COUNTRIES: ${{ vars.APP_COUNTRIES }}
+          GOOGLE_APP_IDS: ${{ vars.GOOGLE_APP_IDS }}
         run: python main.py
 
       - name: Save last-check state
