@@ -9,6 +9,9 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+# KST = UTC+9, cutoff: 2026-03-01 00:00:00 KST
+CUTOFF_DATE = datetime(2026, 3, 1, tzinfo=timezone(timedelta(hours=9)))
+
 logger = logging.getLogger(__name__)
 
 RSS_URL = (
@@ -42,6 +45,16 @@ def _parse_entry(entry: dict, country: str) -> dict:
     }
 
 
+def _parse_review_date(date_str: str) -> datetime | None:
+    """Parse Apple review date string to datetime."""
+    if not date_str:
+        return None
+    try:
+        return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+
 def fetch_reviews(app_id: str, country: str, max_pages: int = 3) -> list[dict]:
     """Fetch recent reviews from Apple RSS feed."""
     session = _create_session()
@@ -71,7 +84,11 @@ def fetch_reviews(app_id: str, country: str, max_pages: int = 3) -> list[dict]:
             break
 
         for entry in reviews:
-            all_reviews.append(_parse_entry(entry, country))
+            parsed = _parse_entry(entry, country)
+            review_dt = _parse_review_date(parsed["date"])
+            if review_dt and review_dt < CUTOFF_DATE:
+                continue
+            all_reviews.append(parsed)
 
     return all_reviews
 

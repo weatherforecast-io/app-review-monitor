@@ -5,17 +5,12 @@ from datetime import datetime, timezone, timedelta
 
 from google_play_scraper import Sort, reviews
 
-logger = logging.getLogger(__name__)
+from scripts.countries import COUNTRY_LANG_MAP
 
-# google-play-scraper language codes for major countries
-COUNTRY_LANG_MAP = {
-    "kr": "ko", "us": "en", "jp": "ja", "gb": "en", "de": "de",
-    "fr": "fr", "au": "en", "ca": "en", "cn": "zh", "tw": "zh",
-    "in": "en", "br": "pt", "mx": "es", "es": "es", "it": "it",
-    "nl": "nl", "se": "sv", "no": "no", "dk": "da", "fi": "fi",
-    "sg": "en", "hk": "zh", "th": "th", "id": "id", "my": "en",
-    "ph": "en", "sa": "ar", "ae": "ar", "tr": "tr", "pl": "pl",
-}
+# KST = UTC+9, cutoff: 2026-03-01 00:00:00 KST
+CUTOFF_DATE = datetime(2026, 3, 1, tzinfo=timezone(timedelta(hours=9)))
+
+logger = logging.getLogger(__name__)
 
 
 def fetch_reviews_google(package_name: str, country: str, max_count: int = 50) -> list[dict]:
@@ -38,6 +33,13 @@ def fetch_reviews_google(package_name: str, country: str, max_count: int = 50) -
     for r in result:
         review_date = r.get("at")
         if isinstance(review_date, datetime):
+            # Filter out reviews before cutoff date
+            if review_date.tzinfo is None:
+                review_date_aware = review_date.replace(tzinfo=timezone.utc)
+            else:
+                review_date_aware = review_date
+            if review_date_aware < CUTOFF_DATE:
+                continue
             date_str = review_date.isoformat()
         else:
             date_str = str(review_date) if review_date else ""

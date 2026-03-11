@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 from pathlib import Path
 
 import anthropic
@@ -64,7 +65,9 @@ def classify_and_translate_reviews(reviews: list[dict], api_key: str) -> list[di
     batch_size = 20
     all_results = []
 
-    for batch_start in range(0, len(reviews), batch_size):
+    for batch_idx, batch_start in enumerate(range(0, len(reviews), batch_size)):
+        if batch_idx > 0:
+            time.sleep(2.0)
         batch_reviews = reviews[batch_start:batch_start + batch_size]
         batch_items = []
         for i, r in enumerate(batch_reviews):
@@ -99,11 +102,23 @@ def classify_and_translate_reviews(reviews: list[dict], api_key: str) -> list[di
 ]"""
 
         try:
-            message = client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=4096,
-                messages=[{"role": "user", "content": batch_prompt}],
-            )
+            # Retry with exponential backoff on rate limit errors
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    message = client.messages.create(
+                        model="claude-haiku-4-5-20251001",
+                        max_tokens=4096,
+                        messages=[{"role": "user", "content": batch_prompt}],
+                    )
+                    break
+                except anthropic.RateLimitError:
+                    if attempt < max_retries - 1:
+                        wait = 2 ** (attempt + 1)
+                        logger.info("Rate limited, retrying in %ds...", wait)
+                        time.sleep(wait)
+                    else:
+                        raise
 
             response_text = message.content[0].text.strip()
 
