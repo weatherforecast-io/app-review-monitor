@@ -54,6 +54,7 @@ def load_config() -> dict:
 def _collect_apple_reviews(app_id: str, countries: list[str], state: dict, app_name: str) -> list[dict]:
     """Collect new Apple App Store reviews."""
     app_reviews = []
+    seen_ids: set[str] = set()
     for country in countries:
         reviews = fetch_reviews(app_id, country)
         state_key = f"apple_{app_id}_{country}"
@@ -61,8 +62,10 @@ def _collect_apple_reviews(app_id: str, countries: list[str], state: dict, app_n
 
         if new_reviews:
             state[state_key] = new_reviews[0]["id"]
-            app_reviews.extend(new_reviews)
-            logger.info("  🍎 %s/%s: %d new reviews", country.upper(), app_name, len(new_reviews))
+            deduped = [r for r in new_reviews if r["id"] not in seen_ids]
+            seen_ids.update(r["id"] for r in deduped)
+            app_reviews.extend(deduped)
+            logger.info("  🍎 %s/%s: %d new reviews (%d unique)", country.upper(), app_name, len(new_reviews), len(deduped))
         else:
             logger.info("  🍎 %s/%s: no new reviews", country.upper(), app_name)
 
@@ -72,6 +75,7 @@ def _collect_apple_reviews(app_id: str, countries: list[str], state: dict, app_n
 def _collect_google_reviews(google_app_id: str, countries: list[str], state: dict, app_name: str) -> list[dict]:
     """Collect new Google Play Store reviews."""
     app_reviews = []
+    seen_ids: set[str] = set()
     for country in countries:
         reviews = fetch_reviews_google(google_app_id, country)
         state_key = f"google_{google_app_id}_{country}"
@@ -79,8 +83,10 @@ def _collect_google_reviews(google_app_id: str, countries: list[str], state: dic
 
         if new_reviews:
             state[state_key] = new_reviews[0]["id"]
-            app_reviews.extend(new_reviews)
-            logger.info("  🤖 %s/%s: %d new reviews", country.upper(), app_name, len(new_reviews))
+            deduped = [r for r in new_reviews if r["id"] not in seen_ids]
+            seen_ids.update(r["id"] for r in deduped)
+            app_reviews.extend(deduped)
+            logger.info("  🤖 %s/%s: %d new reviews (%d unique)", country.upper(), app_name, len(new_reviews), len(deduped))
         else:
             logger.info("  🤖 %s/%s: no new reviews", country.upper(), app_name)
 
