@@ -8,6 +8,7 @@ import yaml
 
 from scripts.check_reviews import fetch_reviews, filter_new_reviews, load_state, save_state
 from scripts.check_reviews_google import fetch_reviews_google, filter_new_reviews_google
+from scripts.countries import resolve_countries
 from scripts.format_mail import classify_and_translate_reviews
 from scripts.send_mail import send_slack
 
@@ -34,7 +35,7 @@ def load_config() -> dict:
     if app_ids_env and not config.get("apps"):
         ids = [x.strip() for x in app_ids_env.split(",")]
         names = [x.strip() for x in app_names_env.split(",")] if app_names_env else ids
-        countries = [x.strip() for x in countries_env.split(",")]
+        countries = resolve_countries(countries_env)
         google_ids = [x.strip() for x in google_app_ids_env.split(",")] if google_app_ids_env else [""] * len(ids)
 
         config["apps"] = [
@@ -112,7 +113,8 @@ def main() -> None:
         app_name = app["name"]
         app_id = app["app_id"]
         google_app_id = app.get("google_app_id")
-        countries = app.get("countries", ["us"])
+        countries_raw = app.get("countries", ["us"])
+        countries = resolve_countries(countries_raw) if isinstance(countries_raw, str) else countries_raw
         webhook_url = webhook_urls[i] if i < len(webhook_urls) else webhook_urls[-1]
 
         logger.info("Checking reviews for %s...", app_name)
